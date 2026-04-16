@@ -24,7 +24,7 @@ from a2a.server.request_handlers import DefaultRequestHandler
 from a2a.server.tasks import InMemoryTaskStore
 from a2a.types import AgentCard, AgentCapabilities, AgentSkill
 
-from adapters import get_adapter, AdapterConfig
+from molecule_runtime.adapters import get_adapter, AdapterConfig
 from config import load_config
 from heartbeat import HeartbeatLoop
 from preflight import run_preflight, render_preflight_report
