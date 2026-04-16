@@ -36,8 +36,8 @@ from a2a.server.agent_execution import AgentExecutor, RequestContext
 from a2a.server.events import EventQueue
 from a2a.utils import new_agent_text_message
 
-from config import RuntimeConfig
-from executor_helpers import (
+from molecule_runtime.config import RuntimeConfig
+from molecule_runtime.executor_helpers import (
     CONFIG_MOUNT,
     MEMORY_CONTENT_MAX_CHARS,
     WORKSPACE_MOUNT,
