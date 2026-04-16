@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install package + test deps
+        run: |
+          pip install -e .
+          pip install pytest
+
+      - name: Run import smoke tests
+        # Critical: these tests run in an environment with NO top-level
+        # `adapters/` package on sys.path. They catch the regression that
+        # broke every modular workspace template repo before the absolute-
+        # import fix. Do not weaken — the failure mode (silent fallthrough
+        # in get_adapter → "Unknown runtime") is hard to debug at runtime.
+        run: pytest tests/ -v

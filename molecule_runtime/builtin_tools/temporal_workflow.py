@@ -414,7 +414,7 @@ class TemporalWorkflowWrapper:
 
         # Build serialisable AgentTaskInput
         try:
-            from adapters.shared_runtime import (
+            from molecule_runtime.adapters.shared_runtime import (
                 extract_history as _extract_history,
                 extract_message_text,
             )
