@@ -17,7 +17,23 @@ import json
 import logging
 import sys
 
-from a2a_tools import (
+# Absolute imports so the installed-package location works too. Previously
+# the script relied on `/app` being on sys.path (legacy template layout),
+# which broke silently when the current template dropped that copy —
+# claude-code then initialised with zero MCP tools and every agent
+# reported "search_memory / commit_memory / list_peers / delegate_task
+# not available" (second half of #507). The /app launch path is still
+# supported via a sys.path shim below for anyone running the script
+# with `python /app/a2a_mcp_server.py`.
+import os as _os
+if __package__ in (None, ""):
+    # Running as a script (python path/to/a2a_mcp_server.py) — put the
+    # package root on sys.path so the absolute imports below resolve.
+    _pkg_root = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+    if _pkg_root not in sys.path:
+        sys.path.insert(0, _pkg_root)
+
+from molecule_runtime.a2a_tools import (
     tool_check_task_status,
     tool_commit_memory,
     tool_delegate_task,
@@ -32,7 +48,7 @@ logger = logging.getLogger(__name__)
 
 # Re-export constants and client functions so existing imports
 # (e.g. tests that do `import a2a_mcp_server`) still work.
-from a2a_client import (  # noqa: F401, E402
+from molecule_runtime.a2a_client import (  # noqa: F401, E402
     PLATFORM_URL,
     WORKSPACE_ID,
     _A2A_ERROR_PREFIX,
@@ -42,7 +58,7 @@ from a2a_client import (  # noqa: F401, E402
     get_workspace_info,
     send_a2a_message,
 )
-from a2a_tools import report_activity  # noqa: F401, E402
+from molecule_runtime.a2a_tools import report_activity  # noqa: F401, E402
 
 # --- Tool definitions (schemas) ---
 

@@ -10,7 +10,7 @@ import uuid
 
 import httpx
 
-from platform_auth import auth_headers
+from molecule_runtime.platform_auth import auth_headers
 
 logger = logging.getLogger(__name__)
 

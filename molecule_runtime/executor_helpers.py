@@ -36,7 +36,10 @@ logger = logging.getLogger(__name__)
 
 WORKSPACE_MOUNT = "/workspace"
 CONFIG_MOUNT = "/configs"
-DEFAULT_MCP_SERVER_PATH = "/app/a2a_mcp_server.py"
+# Legacy template layout copied a2a_mcp_server.py into /app. Current
+# templates don't — the script lives inside the installed runtime package.
+# Kept as a last-resort fallback only.
+LEGACY_MCP_SERVER_PATH = "/app/a2a_mcp_server.py"
 DEFAULT_DELEGATION_RESULTS_FILE = "/tmp/delegation_results.jsonl"
 PLATFORM_HTTP_TIMEOUT_S = 5.0
 MEMORY_RECALL_LIMIT = 10
@@ -44,12 +47,38 @@ MEMORY_CONTENT_MAX_CHARS = 200
 BRIEF_SUMMARY_MAX_LEN = 80
 
 
+def _default_mcp_server_path() -> str:
+    """Resolve the installed ``a2a_mcp_server.py`` path from the package.
+
+    Fix for the secondary half of #507: when agents started producing text
+    again (after the CRLF hook fix), the a2a MCP server failed to start
+    because the hard-coded ``/app/a2a_mcp_server.py`` doesn't exist in the
+    current workspace-template image — the template's Dockerfile copies
+    ``adapter.py`` into /app but not the MCP server script. claude-code
+    then initialised with zero MCP tools, so every agent reported
+    "search_memory / commit_memory / list_peers / delegate_task not
+    available" on the first post-fix pulse.
+
+    Resolve the path from the package itself so it always points at the
+    real installed script, regardless of which template layout imported
+    the runtime. Legacy /app/ path kept only as last-resort fallback.
+    """
+    try:
+        from molecule_runtime import a2a_mcp_server as _mcp_mod
+        path = getattr(_mcp_mod, "__file__", None)
+        if path and os.path.isfile(path):
+            return path
+    except Exception:
+        pass
+    return LEGACY_MCP_SERVER_PATH
+
+
 def get_mcp_server_path() -> str:
     """Return the path to the stdio MCP server script.
 
     Overridable via A2A_MCP_SERVER_PATH for tests and non-default layouts.
     """
-    return os.environ.get("A2A_MCP_SERVER_PATH", DEFAULT_MCP_SERVER_PATH)
+    return os.environ.get("A2A_MCP_SERVER_PATH", _default_mcp_server_path())
 
 
 # ========================================================================
