@@ -4,7 +4,7 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from config import WorkspaceConfig
+from molecule_runtime.config import WorkspaceConfig
 
 SUPPORTED_RUNTIMES = {
     "langgraph",

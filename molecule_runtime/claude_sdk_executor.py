@@ -26,6 +26,7 @@ one active stream at any given moment).
 from __future__ import annotations
 
 import asyncio
+import glob
 import logging
 import os
 import sys
@@ -39,7 +40,7 @@ from a2a.server.agent_execution import AgentExecutor, RequestContext
 from a2a.server.events import EventQueue
 from a2a.utils import new_agent_text_message
 
-from executor_helpers import (
+from molecule_runtime.executor_helpers import (
     CONFIG_MOUNT,
     MEMORY_CONTENT_MAX_CHARS,
     WORKSPACE_MOUNT,
@@ -233,6 +234,49 @@ class ClaudeSDKExecutor(AgentExecutor):
             return prompt
         return f"[Prior context from memory]\n{memories}\n\n{prompt}"
 
+    # Session-file lookup paths used by _resolve_resume(). claude-code stores
+    # sessions at /root/.claude/projects/<cwd-with-slashes-as-dashes>/<id>.jsonl.
+    # We probe a handful of well-known locations; if no match, the session is
+    # gone (volume recycled, prior container destroyed) and resuming would
+    # crash the CLI immediately. See #488.
+    _SESSION_FILE_PATTERNS = (
+        "/root/.claude/projects/*/{id}.jsonl",
+        "/root/.claude/sessions/{id}.jsonl",
+        "/home/agent/.claude/projects/*/{id}.jsonl",
+        "/home/agent/.claude/sessions/{id}.jsonl",
+    )
+
+    def _resolve_resume(self) -> str | None:
+        """Return self._session_id ONLY if its session file actually exists.
+
+        Fixes #488 (session-stale loop). When a workspace container is
+        recreated or the claude-sessions volume is recycled, the in-memory
+        session_id from a prior instance references a file that no longer
+        exists. Passing it as resume=<id> to the SDK causes the CLI to
+        crash with "No conversation found with session ID" on every call,
+        forever — the existing #75 reset only fires AFTER the first
+        ProcessError lands, and per-cycle executor re-instantiation can
+        reload the stale id from elsewhere.
+
+        Gating resume on real-file existence breaks the loop at the
+        source: if the file is gone, drop both the in-memory id AND the
+        resume arg, so the CLI starts a fresh session on this turn.
+        Logged at INFO when a stale id is dropped so operators can
+        correlate with the cron schedule that triggered the reset.
+        """
+        sid = self._session_id
+        if not sid:
+            return None
+        for pattern in self._SESSION_FILE_PATTERNS:
+            if glob.glob(pattern.format(id=sid)):
+                return sid
+        logger.info(
+            "SDK session file missing for %s — dropping resume, fresh session (#488)",
+            sid,
+        )
+        self._session_id = None
+        return None
+
     def _build_options(self) -> Any:
         """Build ClaudeAgentOptions.
 
@@ -243,6 +287,9 @@ class ClaudeSDKExecutor(AgentExecutor):
 
         The MCP server launcher uses `sys.executable` so tests and alternate
         virtual-env layouts don't depend on a `python3` shim being on PATH.
+
+        Resume is gated through _resolve_resume() so a stale session id
+        from a previous container never crashes the CLI — see #488.
         """
         mcp_servers = {
             "a2a": {
@@ -256,7 +303,7 @@ class ClaudeSDKExecutor(AgentExecutor):
             cwd=self._resolve_cwd(),
             mcp_servers=mcp_servers,
             system_prompt=self._build_system_prompt(),
-            resume=self._session_id,
+            resume=self._resolve_resume(),
         )
 
     # ------------------------------------------------------------------
