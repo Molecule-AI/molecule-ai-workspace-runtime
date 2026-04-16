@@ -39,7 +39,7 @@ from initial_prompt import (
     mark_initial_prompt_attempted,
     resolve_initial_prompt_marker,
 )
-from platform_auth import auth_headers
+from molecule_runtime.platform_auth import auth_headers
 
 
 def get_machine_ip() -> str:  # pragma: no cover

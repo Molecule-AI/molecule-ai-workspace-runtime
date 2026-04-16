@@ -8,7 +8,7 @@ import uuid
 
 import httpx
 
-from a2a_client import (
+from molecule_runtime.a2a_client import (
     PLATFORM_URL,
     WORKSPACE_ID,
     _A2A_ERROR_PREFIX,
@@ -24,7 +24,7 @@ def _auth_headers_for_heartbeat() -> dict[str, str]:
     """Return Phase 30.1 auth headers; tolerate platform_auth being absent
     in older installs (e.g. during rolling upgrade)."""
     try:
-        from platform_auth import auth_headers
+        from molecule_runtime.platform_auth import auth_headers
         return auth_headers()
     except Exception:
         return {}
