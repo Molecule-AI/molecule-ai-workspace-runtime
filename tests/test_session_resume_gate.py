@@ -14,9 +14,41 @@ None so the SDK starts a fresh session.
 from __future__ import annotations
 
 import os
+import sys
+import types
 from unittest.mock import patch
 
 import pytest
+
+# Stub claude_agent_sdk before importing the executor — the real SDK isn't a
+# runtime dep of this package (it's installed inside the claude-code workspace
+# image, not in the CI env). We only need the module to be importable; the
+# tests here don't exercise the SDK, only _resolve_resume().
+if "claude_agent_sdk" not in sys.modules:
+    _stub = types.ModuleType("claude_agent_sdk")
+    _stub.ClaudeAgentOptions = lambda **kwargs: types.SimpleNamespace(**kwargs)
+    sys.modules["claude_agent_sdk"] = _stub
+
+# Same for a2a, which is a workspace-image dep but not a test-env dep.
+for mod_path, attr in [
+    ("a2a", None),
+    ("a2a.server", None),
+    ("a2a.server.agent_execution", "AgentExecutor"),
+    ("a2a.server.agent_execution", "RequestContext"),
+    ("a2a.server.events", "EventQueue"),
+    ("a2a.utils", "new_agent_text_message"),
+]:
+    if mod_path not in sys.modules:
+        m = types.ModuleType(mod_path)
+        sys.modules[mod_path] = m
+    if attr:
+        mod = sys.modules[mod_path]
+        if not hasattr(mod, attr):
+            # Use a minimal base class for AgentExecutor so inheritance works.
+            if attr == "AgentExecutor":
+                setattr(mod, attr, type("AgentExecutor", (), {}))
+            else:
+                setattr(mod, attr, lambda *a, **kw: None)
 
 from molecule_runtime.claude_sdk_executor import ClaudeSDKExecutor
 
