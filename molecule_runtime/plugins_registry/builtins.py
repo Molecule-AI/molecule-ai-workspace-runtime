@@ -267,7 +267,16 @@ def _copy_dir_files(
             if not (executable_suffix and f.suffix == ".py"):
                 continue
         target = dst / f.name
-        shutil.copy2(f, target)
+        # Strip CRLF from .sh and .py files. Windows git checkout introduces
+        # \r\n even with .gitattributes eol=lf; Linux containers choke on \r
+        # in shebangs and Python path args. This single fix point covers ALL
+        # plugin hooks that enter a workspace container (#507 permanent fix).
+        if f.suffix in (".sh", ".py"):
+            data = f.read_bytes().replace(b"\r\n", b"\n")
+            target.write_bytes(data)
+            shutil.copystat(f, target)
+        else:
+            shutil.copy2(f, target)
         if executable_suffix and f.suffix == executable_suffix:
             target.chmod(0o755)
         result.files_written.append(str(target.relative_to(target.parents[2])))
